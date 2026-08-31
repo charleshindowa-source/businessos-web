@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { INK, BRICK, PIN_MAX_ATTEMPTS, PIN_LOCKOUT_MS } from "../../lib/constants";
+import { BRAND_NAVY_DARK, BRAND_BLUE, BRICK, PIN_MAX_ATTEMPTS, PIN_LOCKOUT_MS } from "../../lib/constants";
 import { hashPin } from "../../lib/utils";
 
 const LOCKOUT_KEY = "businessos.pinLockout";
@@ -62,22 +62,22 @@ export function Login({ data, onLogin }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: INK }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${BRAND_NAVY_DARK}, ${BRAND_BLUE})` }}>
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-xs">
-        <img src="./logo.png" alt="Root & Rinse" className="w-full max-w-[180px] mx-auto mb-3" />
-        <h1 className="text-lg font-semibold text-center">Root & Rinse OS</h1>
+        <img src="./logomark.png" alt="MiKish Store" className="w-16 h-16 rounded-xl mx-auto mb-3" />
+        <h1 className="text-lg font-semibold text-center">MiKish Store</h1>
         <p className="text-xs text-[#8A9490] mb-5 text-center">Enter your PIN to continue.</p>
         <input
           autoFocus type="text" inputMode="numeric" maxLength={6} value={pin} disabled={locked || checking}
           onChange={e => { setPin(e.target.value.replace(/\D/g, "")); setError(""); }}
           onKeyDown={e => { if (e.key === "Enter") tryLogin(); }}
-          className="w-full text-center text-2xl tracking-[0.5em] font-mono px-3 py-3 rounded-md border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C2410C]/30 disabled:opacity-50"
+          className="w-full text-center text-2xl tracking-[0.5em] font-mono px-3 py-3 rounded-md border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#2F6FED]/30 disabled:opacity-50"
           placeholder="····"
         />
         {locked ? (
           <p className="text-xs mt-2" style={{ color: BRICK }}>Too many attempts. Try again in {secsLeft}s.</p>
         ) : error && <p className="text-xs mt-2" style={{ color: BRICK }}>{error}</p>}
-        <button type="button" onClick={tryLogin} disabled={locked || checking} className="w-full mt-4 py-2 rounded-md text-white text-sm font-medium disabled:opacity-50" style={{ background: INK }}>
+        <button type="button" onClick={tryLogin} disabled={locked || checking} className="w-full mt-4 py-2 rounded-md text-white text-sm font-medium disabled:opacity-50" style={{ background: BRAND_NAVY_DARK }}>
           {checking ? "Checking…" : "Log In"}
         </button>
         <p className="text-[10px] text-[#8A9490] mt-4 leading-relaxed">Owners get full access. Staff PINs unlock Dashboard, Attendance check-in, Stock lookup, and Sales entry only.</p>

@@ -6,6 +6,14 @@ export const AMBER = "#C98A2C";
 export const BRICK = "#A6402F";
 export const MOSS = "#3C7A5A";
 
+/* MiKish Store brand — used by the app chrome (header, hero, bottom nav,
+   buttons); the tokens above stay in use for business-data semantics
+   (BizTag, KPI tone) so existing tabs don't need re-theming. */
+export const BRAND_NAVY_DARK = "#0B1A3A";
+export const BRAND_NAVY = "#11244A";
+export const BRAND_BLUE = "#2F6FED";
+export const BRAND_BLUE_LIGHT = "#5E95F5";
+
 export const BUSINESSES = ["Root & Rinse", "General Merchandise"];
 export const CATEGORIES_EXP = [
   "Rent", "Utilities", "Advertising/Marketing", "Transport/Logistics", "Packaging",

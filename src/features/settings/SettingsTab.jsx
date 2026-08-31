@@ -45,8 +45,15 @@ function OwnerAccessCard({ data, patch }) {
   }
   function setTestingMode(v) { setTestingModeState(v); patch(d => { d.settings.testingMode = v; return d; }); }
 
+  function setOwnerName(v) { patch(d => { d.settings.ownerName = v; return d; }); }
+
   return (
     <Card title="Owner Access">
+      <div className="mb-4 max-w-xs">
+        <Field label="Your Name (shown on Home)">
+          <input className={inputCls} defaultValue={data.settings.ownerName || "Owner"} onBlur={e => setOwnerName(e.target.value || "Owner")} />
+        </Field>
+      </div>
       <div className="flex flex-wrap items-end gap-4 mb-4">
         <Field label="New Owner PIN"><input type="text" inputMode="numeric" maxLength={6} className={inputCls + " w-28 tracking-widest"} value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ""))} /></Field>
         <Field label="Confirm PIN"><input type="text" inputMode="numeric" maxLength={6} className={inputCls + " w-28 tracking-widest"} value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ""))} /></Field>

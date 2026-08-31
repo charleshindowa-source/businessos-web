@@ -29,6 +29,7 @@ export const DEFAULT_STATE = {
   activityLog: [],
   settings: {
     standardWorkingDays: 26,
+    ownerName: "Owner",
     ownerPinSalt: "",
     ownerPinHash: "",
     ownerPinIsDefault: true,

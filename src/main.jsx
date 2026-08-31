@@ -11,6 +11,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    // Relative to BASE_URL so this also works when served from a subpath
+    // (e.g. GitHub Pages project sites at /<repo-name>/), not just the root.
+    const base = import.meta.env.BASE_URL;
+    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => {});
   });
 }

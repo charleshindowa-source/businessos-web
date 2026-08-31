@@ -15,6 +15,14 @@ export function monthLabel(v) { return MONTHS.find(m => m.value === v)?.label ||
 export function daysInMonth(v) { const [y, m] = v.split("-").map(Number); return new Date(y, m, 0).getDate(); }
 export function uid() { return Math.random().toString(36).slice(2, 10); }
 export function money(n) { return (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " NLe"; }
+// Compact form for tight spaces (stat tiles): "NLe 12.3K" instead of "12,345.00 NLe".
+export function moneyShort(n) {
+  const v = Number(n) || 0;
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `NLe ${(v / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `NLe ${(v / 1_000).toFixed(1)}K`;
+  return `NLe ${v.toFixed(0)}`;
+}
 export function initials(name) { return (name || "?").trim().split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); }
 export function timeAgo(iso) {
   if (!iso) return "";

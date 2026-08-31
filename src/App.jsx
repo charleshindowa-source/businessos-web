@@ -1,20 +1,27 @@
 import React, { useState, useCallback } from "react";
 import {
   LayoutDashboard, Users, CalendarCheck, Wallet, Package, ShoppingCart,
-  Receipt, TrendingUp, Scale, Target, ChevronRight, Menu, LogOut,
+  Receipt, TrendingUp, Scale, Target, Menu, LogOut,
   ClipboardList, BookOpen, Contact, Truck, Settings as SettingsIcon,
 } from "lucide-react";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SaveIndicator, MonthPicker } from "./components/ui";
+import { MobileAppShell } from "./components/MobileAppShell";
+import { AIAssistant } from "./components/AIAssistant";
+import { MultiScanModal, StockScanModal } from "./components/ScanActions";
 import { useAppData } from "./lib/useAppData";
 import { useIdleLogout } from "./lib/useIdleLogout";
+import { useIsMobile } from "./lib/useIsMobile";
+import { useOnlineStatus } from "./lib/useOnlineStatus";
 import { makeCalcs } from "./lib/calcEngine";
 import { pushLog, uid, money } from "./lib/utils";
-import { PAPER, INK, TEAL, AMBER } from "./lib/constants";
+import { PAPER, BRAND_NAVY_DARK, TEAL, AMBER } from "./lib/constants";
 
 import { Login } from "./features/auth/Login";
 import { Dashboard, StaffDashboard } from "./features/dashboard/Dashboard";
+import { MobileHome } from "./features/dashboard/MobileHome";
+import { InsightsTab } from "./features/dashboard/InsightsTab";
 import { StaffTab } from "./features/staff/StaffTab";
 import { StaffProfile } from "./features/staff/StaffProfile";
 import { AttendanceTab } from "./features/attendance/AttendanceTab";
@@ -59,9 +66,15 @@ function App() {
   const [data, setData, status, saveState] = useAppData();
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("dashboard");
+  const [homeView, setHomeView] = useState("dashboard");
   const [month, setMonth] = useState("2026-08");
   const [profileStaff, setProfileStaff] = useState(null);
   const [navOpen, setNavOpen] = useState(true);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [multiScanOpen, setMultiScanOpen] = useState(false);
+  const [stockScanOpen, setStockScanOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const online = useOnlineStatus();
 
   const patch = useCallback((fn) => setData(prev => {
     const next = fn(structuredClone(prev));
@@ -77,7 +90,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: PAPER }}>
         <div className="max-w-sm bg-white rounded-lg border border-black/5 shadow-sm p-6 text-center">
           <div className="font-semibold mb-2" style={{ color: "#A6402F" }}>Can't connect to the database</div>
-          <p className="text-sm text-[#5B6663]">Check your Firebase environment variables and that Firestore + Anonymous Auth are enabled. See README.md.</p>
+          <p className="text-sm text-[#5B6663]">Check your Firebase environment variables and that Firestore + Anonymous Auth are enabled. See README.md. If you're offline, reopen the app once you have a connection at least once so it can cache your data for future offline use.</p>
         </div>
       </div>
     );
@@ -87,26 +100,101 @@ function App() {
   }
   if (!currentUser) {
     return <Login data={data} onLogin={(u) => {
-      setCurrentUser(u); setTab("dashboard");
-      const who = u.role === "owner" ? "Owner" : (data.staff.find(s => s.id === u.staffId)?.name || "Staff");
+      setCurrentUser(u); setTab("dashboard"); setHomeView("dashboard");
+      const who = u.role === "owner" ? (data.settings.ownerName || "Owner") : (data.staff.find(s => s.id === u.staffId)?.name || "Staff");
       patch(d => { pushLog(d, who, "Logged in"); return d; });
     }} />;
   }
 
   const isOwner = currentUser.role === "owner";
   const meStaff = !isOwner ? data.staff.find(s => s.id === currentUser.staffId) : null;
-  const who = isOwner ? "Owner" : (meStaff?.name || "Staff");
+  const who = isOwner ? (data.settings.ownerName || "Owner") : (meStaff?.name || "Staff");
   const nav = isOwner ? NAV : NAV.filter(n => STAFF_NAV_KEYS.includes(n.key));
   const activeTab = nav.some(n => n.key === tab) ? tab : "dashboard";
   const calc = makeCalcs(data);
 
+  const mainContent = (
+    <>
+      {isOwner && activeTab === "dashboard" && (
+        isMobile
+          ? (homeView === "insights"
+            ? <InsightsTab data={data} calc={calc} setTab={setTab} />
+            : <MobileHome data={data} calc={calc} setTab={setTab} who={who} onOpenAssistant={() => setAssistantOpen(true)} />)
+          : <Dashboard data={data} calc={calc} month={month} setTab={setTab} setProfileStaff={setProfileStaff} patch={patch} who={who} />
+      )}
+      {isOwner && activeTab === "staff" && <StaffTab data={data} patch={patch} onOpenProfile={setProfileStaff} who={who} />}
+      {isOwner && activeTab === "attendance" && <AttendanceTab data={data} patch={patch} month={month} />}
+      {isOwner && activeTab === "payroll" && <PayrollTab data={data} patch={patch} month={month} calc={calc} />}
+      {isOwner && activeTab === "products" && <ProductsTab data={data} patch={patch} who={who} />}
+      {isOwner && activeTab === "sales" && <SalesTab data={data} patch={patch} calc={calc} who={who} />}
+      {isOwner && activeTab === "orders" && <OrdersTab data={data} patch={patch} calc={calc} who={who} />}
+      {isOwner && activeTab === "customers" && (
+        <DirectoryTab
+          title="Customers" items={data.customers} accentColor={TEAL}
+          fields={[{ key: "phone", label: "Phone" }, { key: "business", label: "Business", type: "business" }, { key: "notes", label: "Notes", span: 2, placeholder: "Preferences, delivery address, etc." }]}
+          statsFor={c => { const s = calc.customerStats(c); return `${s.orderCount} order${s.orderCount !== 1 ? "s" : ""} · ${money(s.totalSpent)}`; }}
+          onAdd={() => patch(d => { d.customers.push({ id: uid(), name: "New Customer", phone: "", business: "Both", notes: "" }); pushLog(d, who, "Added a customer"); return d; })}
+          onUpdate={(id, field, value) => patch(d => { const c = d.customers.find(x => x.id === id); if (c) c[field] = value; return d; })}
+          onRemove={(id) => patch(d => { const c = d.customers.find(x => x.id === id); d.customers = d.customers.filter(x => x.id !== id); if (c) pushLog(d, who, `Removed customer: ${c.name}`); return d; })}
+        />
+      )}
+      {isOwner && activeTab === "suppliers" && (
+        <DirectoryTab
+          title="Suppliers" items={data.suppliers} accentColor={AMBER}
+          fields={[{ key: "phone", label: "Phone" }, { key: "business", label: "Business", type: "business" }, { key: "productsSupplied", label: "Products Supplied", span: 2, placeholder: "e.g. LED bulbs, storage bins" }, { key: "notes", label: "Notes", span: 2 }]}
+          onAdd={() => patch(d => { d.suppliers.push({ id: uid(), name: "New Supplier", phone: "", business: "Both", productsSupplied: "", notes: "" }); pushLog(d, who, "Added a supplier"); return d; })}
+          onUpdate={(id, field, value) => patch(d => { const s = d.suppliers.find(x => x.id === id); if (s) s[field] = value; return d; })}
+          onRemove={(id) => patch(d => { const s = d.suppliers.find(x => x.id === id); d.suppliers = d.suppliers.filter(x => x.id !== id); if (s) pushLog(d, who, `Removed supplier: ${s.name}`); return d; })}
+        />
+      )}
+      {isOwner && activeTab === "catalog" && <CatalogTab data={data} />}
+      {isOwner && activeTab === "incexp" && <IncExpTab data={data} patch={patch} who={who} />}
+      {isOwner && activeTab === "pl" && <PLTab calc={calc} month={month} />}
+      {isOwner && activeTab === "bs" && <BSTab data={data} patch={patch} calc={calc} month={month} />}
+      {isOwner && activeTab === "budget" && <BudgetTab data={data} patch={patch} calc={calc} />}
+      {isOwner && activeTab === "settings" && <SettingsTab data={data} patch={patch} who={who} />}
+
+      {!isOwner && meStaff && activeTab === "dashboard" && <StaffDashboard data={data} calc={calc} month={month} staff={meStaff} setTab={setTab} />}
+      {!isOwner && meStaff && activeTab === "attendance" && <StaffAttendanceTab data={data} patch={patch} month={month} staff={meStaff} who={who} />}
+      {!isOwner && meStaff && activeTab === "products" && <ProductsTab data={data} patch={patch} readOnly who={who} />}
+      {!isOwner && meStaff && activeTab === "sales" && <StaffSalesTab data={data} patch={patch} calc={calc} staff={meStaff} who={who} />}
+    </>
+  );
+
+  const globalModals = (
+    <>
+      {assistantOpen && <AIAssistant data={data} calc={calc} onClose={() => setAssistantOpen(false)} />}
+      {multiScanOpen && <MultiScanModal data={data} calc={calc} patch={patch} who={who} staffId={!isOwner ? currentUser.staffId : ""} onClose={() => setMultiScanOpen(false)} />}
+      {stockScanOpen && <StockScanModal data={data} calc={calc} patch={patch} who={who} setTab={setTab} readOnly={!isOwner} onClose={() => setStockScanOpen(false)} />}
+      {isOwner && profileStaff && (
+        <StaffProfile staff={data.staff.find(s => s.id === profileStaff)} data={data} patch={patch} month={month} setMonth={setMonth} onClose={() => setProfileStaff(null)} calc={calc} />
+      )}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileAppShell
+          nav={nav} activeTab={activeTab} setTab={(k) => { setTab(k); if (k === "dashboard") setHomeView("dashboard"); }}
+          who={who} isOwner={isOwner} logout={logout} homeView={homeView} setHomeView={setHomeView}
+          saveState={saveState} online={online}
+          onMultiScan={() => setMultiScanOpen(true)} onStockScan={() => setStockScanOpen(true)}
+        >
+          {mainContent}
+        </MobileAppShell>
+        {globalModals}
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen flex" style={{ background: PAPER }}>
-      <aside className={`${navOpen ? "w-56" : "w-14"} shrink-0 transition-all duration-200 flex flex-col border-r border-black/5`} style={{ background: INK }}>
+      <aside className={`${navOpen ? "w-56" : "w-14"} shrink-0 transition-all duration-200 flex flex-col border-r border-black/5`} style={{ background: BRAND_NAVY_DARK }}>
         <div className="h-14 flex items-center px-3 gap-2 border-b border-white/10">
           <button onClick={() => setNavOpen(o => !o)} className="text-white/70 hover:text-white shrink-0"><Menu size={18} /></button>
-          <img src="./logomark.png" alt="" className="w-7 h-7 shrink-0" />
-          {navOpen && <span className="text-white font-semibold text-sm tracking-wide truncate">Root & Rinse OS</span>}
+          <img src="./logomark.png" alt="" className="w-7 h-7 rounded-md shrink-0" />
+          {navOpen && <span className="text-white font-semibold text-sm tracking-wide truncate">MiKish Store</span>}
         </div>
         <nav className="flex-1 py-3 flex flex-col gap-0.5 overflow-y-auto">
           {nav.map(n => {
@@ -120,6 +208,7 @@ function App() {
         </nav>
         <div className="p-4 border-t border-white/10 space-y-2">
           {navOpen && <div className="text-[10px] text-white/40 font-mono">{isOwner ? "Owner access" : `Staff · ${meStaff?.name || ""}`}</div>}
+          {navOpen && !online && <div className="text-[10px] text-amber-300/80">Offline — showing cached data</div>}
           <button onClick={logout} className="flex items-center gap-2 text-xs text-white/60 hover:text-white"><LogOut size={14} />{navOpen && "Log out"}</button>
         </div>
       </aside>
@@ -132,50 +221,10 @@ function App() {
             <span className="text-xs text-[#8A9490] font-mono">Period</span><MonthPicker value={month} onChange={setMonth} />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">
-          {isOwner && activeTab === "dashboard" && <Dashboard data={data} calc={calc} month={month} setTab={setTab} setProfileStaff={setProfileStaff} patch={patch} who={who} />}
-          {isOwner && activeTab === "staff" && <StaffTab data={data} patch={patch} onOpenProfile={setProfileStaff} who={who} />}
-          {isOwner && activeTab === "attendance" && <AttendanceTab data={data} patch={patch} month={month} />}
-          {isOwner && activeTab === "payroll" && <PayrollTab data={data} patch={patch} month={month} calc={calc} />}
-          {isOwner && activeTab === "products" && <ProductsTab data={data} patch={patch} who={who} />}
-          {isOwner && activeTab === "sales" && <SalesTab data={data} patch={patch} calc={calc} who={who} />}
-          {isOwner && activeTab === "orders" && <OrdersTab data={data} patch={patch} calc={calc} who={who} />}
-          {isOwner && activeTab === "customers" && (
-            <DirectoryTab
-              title="Customers" items={data.customers} accentColor={TEAL}
-              fields={[{ key: "phone", label: "Phone" }, { key: "business", label: "Business", type: "business" }, { key: "notes", label: "Notes", span: 2, placeholder: "Preferences, delivery address, etc." }]}
-              statsFor={c => { const s = calc.customerStats(c); return `${s.orderCount} order${s.orderCount !== 1 ? "s" : ""} · ${money(s.totalSpent)}`; }}
-              onAdd={() => patch(d => { d.customers.push({ id: uid(), name: "New Customer", phone: "", business: "Both", notes: "" }); pushLog(d, who, "Added a customer"); return d; })}
-              onUpdate={(id, field, value) => patch(d => { const c = d.customers.find(x => x.id === id); if (c) c[field] = value; return d; })}
-              onRemove={(id) => patch(d => { const c = d.customers.find(x => x.id === id); d.customers = d.customers.filter(x => x.id !== id); if (c) pushLog(d, who, `Removed customer: ${c.name}`); return d; })}
-            />
-          )}
-          {isOwner && activeTab === "suppliers" && (
-            <DirectoryTab
-              title="Suppliers" items={data.suppliers} accentColor={AMBER}
-              fields={[{ key: "phone", label: "Phone" }, { key: "business", label: "Business", type: "business" }, { key: "productsSupplied", label: "Products Supplied", span: 2, placeholder: "e.g. LED bulbs, storage bins" }, { key: "notes", label: "Notes", span: 2 }]}
-              onAdd={() => patch(d => { d.suppliers.push({ id: uid(), name: "New Supplier", phone: "", business: "Both", productsSupplied: "", notes: "" }); pushLog(d, who, "Added a supplier"); return d; })}
-              onUpdate={(id, field, value) => patch(d => { const s = d.suppliers.find(x => x.id === id); if (s) s[field] = value; return d; })}
-              onRemove={(id) => patch(d => { const s = d.suppliers.find(x => x.id === id); d.suppliers = d.suppliers.filter(x => x.id !== id); if (s) pushLog(d, who, `Removed supplier: ${s.name}`); return d; })}
-            />
-          )}
-          {isOwner && activeTab === "catalog" && <CatalogTab data={data} />}
-          {isOwner && activeTab === "incexp" && <IncExpTab data={data} patch={patch} who={who} />}
-          {isOwner && activeTab === "pl" && <PLTab calc={calc} month={month} />}
-          {isOwner && activeTab === "bs" && <BSTab data={data} patch={patch} calc={calc} month={month} />}
-          {isOwner && activeTab === "budget" && <BudgetTab data={data} patch={patch} calc={calc} />}
-          {isOwner && activeTab === "settings" && <SettingsTab data={data} patch={patch} who={who} />}
-
-          {!isOwner && meStaff && activeTab === "dashboard" && <StaffDashboard data={data} calc={calc} month={month} staff={meStaff} setTab={setTab} />}
-          {!isOwner && meStaff && activeTab === "attendance" && <StaffAttendanceTab data={data} patch={patch} month={month} staff={meStaff} who={who} />}
-          {!isOwner && meStaff && activeTab === "products" && <ProductsTab data={data} patch={patch} readOnly who={who} />}
-          {!isOwner && meStaff && activeTab === "sales" && <StaffSalesTab data={data} patch={patch} calc={calc} staff={meStaff} who={who} />}
-        </main>
+        <main className="flex-1 overflow-y-auto p-6">{mainContent}</main>
       </div>
 
-      {isOwner && profileStaff && (
-        <StaffProfile staff={data.staff.find(s => s.id === profileStaff)} data={data} patch={patch} month={month} setMonth={setMonth} onClose={() => setProfileStaff(null)} calc={calc} />
-      )}
+      {globalModals}
     </div>
   );
 }

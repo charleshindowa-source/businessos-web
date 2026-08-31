@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Printable invoices/receipts: hide everything except the marked region. */
+@media print {
+  body * { visibility: hidden; }
+  .invoice-print, .invoice-print * { visibility: visible; }
+  .invoice-print { position: absolute; top: 0; left: 0; width: 100%; }
+  .no-print { display: none !important; }
+}

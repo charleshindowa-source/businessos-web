@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Requires Firebase Authentication → Sign-in method → Anonymous to be
+    // enabled in your Firebase console. The app signs in anonymously on
+    // load before it ever touches Firestore, so this is transparent to
+    // users — but it means a stranger who only knows your project ID
+    // (which is not secret) can no longer read or write your data without
+    // at least going through Firebase's own auth flow. It is NOT per-user
+    // security — every signed-in device shares the same access level, and
+    // the app's PIN screen is still the real "who are you" gate on top of
+    // this. See README.md "Security" for the full picture and how to go
+    // further with real per-user accounts later.
+    match /businessos/shared-data {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

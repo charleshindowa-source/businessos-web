@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Same anonymous-auth gate as firestore.rules — see the notes there.
+    match /product-images/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

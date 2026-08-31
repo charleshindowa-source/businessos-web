@@ -1,5 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+import {
+  initializeFirestore, doc, setDoc, onSnapshot, getDoc,
+  persistentLocalCache, persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
@@ -24,7 +27,15 @@ const firebaseConfig = {
 export const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// Persistent local cache (IndexedDB) means the last-synced data is readable
+// the moment the app opens with no network, and writes made offline queue
+// locally and sync automatically once the connection comes back — no custom
+// offline queue needed, this is Firestore's own supported offline mode.
+// multiTabManager lets multiple tabs/windows of the app share one cache
+// instead of fighting over an exclusive lock.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 

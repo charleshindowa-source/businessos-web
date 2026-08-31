@@ -1,12 +1,32 @@
-# Root & Rinse OS — BusinessOS
+# MiKish Store — Retail Manager
 
 All-in-one operations platform for small retail businesses — HR, attendance,
 payroll, stock, sales, customer orders, invoicing, and financials for two
 businesses (Root & Rinse and General Merchandise) in one shared, real-time
 app. Built to run as a real website with its own address, syncing every
-device through Firebase, installable on Android/iOS as a home-screen app.
+device through Firebase, installable on Android/iOS as a home-screen app —
+and to keep working when that device loses signal.
 
 ## What's in this rebuild
+
+- **Mobile-first Home dashboard** — a Daily/Weekly/Monthly toggle over
+  Sales, Profit, Purchases, Expenses, Transactions, Other Income, and Net
+  Cashflow, plus a Quick Actions grid into every part of the app and an
+  Insights view (revenue trend, top products, stock alerts). The phone
+  layout gets this dashboard, a bottom nav (Home / Multi Scan / Stock
+  Scan), and a slide-out menu; wider screens keep the sidebar-based owner
+  console.
+- **Works offline, not just "installable"** — Firestore's persistent local
+  cache is enabled, so the app opens with your last-synced data even with
+  no signal, and anything you log while offline (a sale, a stock count)
+  queues locally and syncs automatically the moment you're back online.
+- **Multi Scan / Stock Scan** — global scan shortcuts from the bottom nav:
+  Multi Scan keeps the camera open to ring up several items in a row into
+  Sales; Stock Scan looks a product up and lets you adjust stock in/out on
+  the spot.
+- **A local AI Assistant** — answers quick questions ("today's sales",
+  "low stock items", "who's checked in") straight from your data, entirely
+  on-device — no API key, no network call, works offline.
 
 - **Invoicing & receipts** — auto-numbered, printable invoices for customer
   orders (Orders → Invoice → Print/Save as PDF), pulling from a Business
@@ -56,7 +76,7 @@ Download the LTS version from **https://nodejs.org** if you don't have it.
 
 ### 2. Create your Firebase project (free)
 1. Go to **https://console.firebase.google.com**, sign in, click **"Add
-   project"**. Name it anything (e.g. `rootandrinse-os`). Analytics is
+   project"**. Name it anything (e.g. `mikish-store`). Analytics is
    optional — you can turn it off.
 2. Click the web icon (`</>`) to register a web app. Skip Firebase
    Hosting if asked.
@@ -190,8 +210,11 @@ unless usage grows dramatically.
   repository secrets (deployed build) have real values, not blanks; check
   Firestore *and* Anonymous Authentication are both enabled (Setup steps
   2–3).
-- **Changes not syncing between devices** → check internet connectivity;
-  there's no offline write queue built in yet.
+- **Changes not syncing between devices** → the app caches data locally and
+  queues writes made offline, syncing automatically once a device is back
+  online; if two devices are online but still not seeing each other's
+  changes, check they're both pointed at the same Firebase project (same
+  `.env` values).
 - **Camera scanner doesn't open** → check the site's camera permission in
   your browser/phone settings; must be served over HTTPS (GitHub Pages is,
   automatically) except on `localhost`.

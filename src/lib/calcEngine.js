@@ -95,9 +95,44 @@ export function makeCalcs(data) {
 
   const reorderAlerts = data.products.filter(p => closingStock(p) <= (Number(p.reorderLevel) || 0));
 
+  /* Combined (both businesses) totals for an inclusive date range, used by
+     the mobile Home dashboard's Daily/Weekly/Monthly toggle. "Purchases" has
+     no dedicated ledger in this schema — it's approximated as cost of goods
+     sold (cogs), i.e. what selling this period's stock cost to buy in. */
+  function periodTotals(startDate, endDate) {
+    const inRange = (d) => d && d >= startDate && d <= endDate;
+    const rangeSales = data.sales.filter(s => inRange(s.date));
+    const revenue = rangeSales.reduce((sum, s) => sum + (Number(s.qty) || 0) * sellingPrice(s.sku), 0);
+    const purchases = rangeSales.reduce((sum, s) => sum + (Number(s.qty) || 0) * unitCost(s.sku), 0);
+    const rangeExp = data.incomeExpenses.filter(e => e.type === "Expense" && inRange(e.date));
+    const expenses = rangeExp.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const rangeInc = data.incomeExpenses.filter(e => e.type === "Income" && inRange(e.date) && e.category !== "Owner Contribution");
+    const otherIncome = rangeInc.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const transactions = rangeSales.length + data.orders.filter(o => inRange(o.date)).length;
+    const profit = revenue - purchases - expenses + otherIncome;
+    const netCashflow = revenue + otherIncome - purchases - expenses;
+    return { revenue, profit, purchases, expenses, otherIncome, transactions, netCashflow };
+  }
+
+  function dateRangeFor(period, anchorMonth) {
+    const today = new Date();
+    const iso = (d) => d.toISOString().slice(0, 10);
+    if (period === "daily") { const s = iso(today); return { start: s, end: s }; }
+    if (period === "weekly") {
+      const start = new Date(today); start.setDate(start.getDate() - 6);
+      return { start: iso(start), end: iso(today) };
+    }
+    const month = anchorMonth || todayMonthStr();
+    const [y, m] = month.split("-").map(Number);
+    const last = new Date(y, m, 0).getDate();
+    return { start: `${month}-01`, end: `${month}-${String(last).padStart(2, "0")}` };
+  }
+  function todayMonthStr() { return new Date().toISOString().slice(0, 7); }
+
   return {
     attendanceSummary, sellingPrice, unitCost, closingStock, findByCode, payrollFor, allPayrollFor,
     plFor, lifetimePL, inventoryValue, ownerCapital, reorderAlerts, suggestedReorderQty, customerStats,
+    periodTotals, dateRangeFor,
     activeStaffCount: data.staff.filter(s => s.status === "Active").length,
   };
 }

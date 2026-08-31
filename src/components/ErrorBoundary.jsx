@@ -4,7 +4,7 @@ import { PAPER, BRICK, INK } from "../lib/constants";
 export class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error("BusinessOS crashed:", error, info); }
+  componentDidCatch(error, info) { console.error("MiKish Store crashed:", error, info); }
   render() {
     if (this.state.error) {
       return (
